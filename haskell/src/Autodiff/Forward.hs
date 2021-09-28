@@ -1,6 +1,8 @@
 {-# LANGUAGE BlockArguments #-}
 module Autodiff.Forward where
 
+import qualified Debug.SimpleReflect as Reflect
+
 data Diff a = Diff
   { getGradient :: a
   , getValue    :: !a
@@ -88,26 +90,29 @@ instance Floating a => Floating (Diff a) where
 diff' :: Num a => (Diff a -> Diff a) -> a -> Diff a
 diff' f = f . independent
 
+-- >>> diff' sin 0
+-- >>> diff' exp 0
+-- >>> diff' (exp . log) 2
+-- Diff {getGradient = 1.0, getValue = 0.0}
+-- Diff {getGradient = 1.0, getValue = 1.0}
+-- Diff {getGradient = 1.0, getValue = 2.0}
+
 diff :: Num a => (Diff a -> Diff a) -> a -> a
 diff f = getGradient . diff' f
 
--- >>> diff' sin 0
--- Diff {getGradient = 1.0, getValue = 0.0}
-
--- >>> diff' exp 0
--- Diff {getGradient = 1.0, getValue = 1.0}
-
--- >>> diff' (exp . log) 2
--- Diff {getGradient = 1.0, getValue = 2.0}
-
 -- >>> let t = 2.0 in diff (\x -> constant t * sin x) 0
--- 2.0
-
 -- >>> diff (diff (diff sin)) 1
--- -0.5403023058681398
-
 -- >>> diff (\x -> x ** x) 5
+-- 2.0
+-- -0.5403023058681398
 -- 8154.493476356562
 
--- >>> diff (\x -> exp x / x ^ 2) 5
--- 3.5619158184618382
+diffSym :: (Diff Reflect.Expr -> Diff Reflect.Expr) -> Reflect.Expr
+diffSym f = diff f Reflect.x
+
+-- >>> let t = 2.0 in diffSym (\x -> constant t * sin x)
+-- >>> diffSym (diff (diff sin))
+-- >>> diffSym (\x -> x ** x)
+-- 2.0 * (1 * cos x) + sin x * 0
+-- 1 * (1 * (1 * cos x * negate 1) + negate (sin x) * 0) + 1 * negate (sin x) * 0 + (cos x * 0 + 0 * (1 * negate (sin x)))
+-- (log x * 1 + x * (1 * recip x)) * exp (log x * x)
