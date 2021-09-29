@@ -1,6 +1,8 @@
 {-# LANGUAGE BlockArguments #-}
 module Autodiff.Forward where
 
+import           Data.List           (transpose)
+import           Data.Traversable    (mapAccumL)
 import qualified Debug.SimpleReflect as Reflect
 
 data Diff a = Diff
@@ -20,6 +22,7 @@ independent = Diff 1
 elementary :: Num a => (a -> a) -> (a -> a) -> Diff a -> Diff a
 elementary f f' (Diff dy y) = Diff (f' y * dy) (f y)
 
+-- d(f(u,v))/dx = ∂f(u,v)/∂u * du/dx + ∂f(u,v)/∂v * dv/dx
 arithmetic :: Num a => (a -> a -> a) -> (a -> a -> (a, a)) -> Diff a -> Diff a -> Diff a
 arithmetic f f' (Diff du u) (Diff dv v) =
   let (dx, dy) = f' u v in Diff (dx * du + dy * dv) (f u v)
@@ -66,12 +69,14 @@ instance Fractional a => Fractional (Diff a) where
   (/) = arithmetic (/) \u v -> (recip v, -u / squared v)
   fromRational = constant . fromRational
 
-instance Floating a => Floating (Diff a) where
+instance (Eq a, Floating a) => Floating (Diff a) where
   pi = constant pi
   -- d(exp x) = exp x
   exp = elementary exp exp
+  -- d(x^n) = nx^(n-1)
+  x ** Diff 0 y = elementary (** y) (\x' -> x' ** (y - 1) * y) x
   -- d(u^v) = (u ^ (v-1)) * (v(du) + u(log u)(dv))
-  (**) = arithmetic (**) \u v -> (u ** (v - 1) * v, u ** (v - 1) * u * log u)
+  x ** y = arithmetic (**) (\u v -> (u ** (v - 1) * v, u ** v * log u)) x y
   -- d(ln x) = 1/x
   log = elementary log recip
   -- d(log_u v) = ((ln v)(du)/u - (ln u)(dv)/v) / (ln u)^2
@@ -103,40 +108,53 @@ instance Floating a => Floating (Diff a) where
   -- d(arctanh x) = 1 / (1 - x^2)
   atanh = elementary atanh \x -> recip $ 1 - squared x
 
-diff' :: Num a => (Diff a -> Diff a) -> a -> Diff a
+diff' :: Num a => (Diff a -> b) -> a -> b
 diff' f = f . independent
 
--- >>> diff' sin 0
--- >>> diff' exp 0
--- >>> diff' (exp . log) 2
--- Diff {getGradient = 1.0, getValue = 0.0}
--- Diff {getGradient = 1.0, getValue = 1.0}
--- Diff {getGradient = 1.0, getValue = 2.0}
+partial' :: (Num a, Traversable f) => (f (Diff a) -> b) -> Int -> f a -> b
+partial' f n t = f $ snd $ mapAccumL (\m x -> (m + 1, if m == n then independent x else constant x)) 0 t
+
+partials' :: (Num a, Traversable f) => (f (Diff a) -> b) -> f a -> f b
+partials' f t = snd $ mapAccumL (\n _ -> (n + 1, partial' f n t)) 0 t
 
 diff :: Num a => (Diff a -> Diff a) -> a -> a
-diff f = getGradient . diff' f
+diff f x = getGradient $ diff' f x
 
 -- >>> let t = 2.0 in diff (\x -> constant t * sin x) 0
 -- >>> diff (diff (diff sin)) 1
 -- >>> diff (\x -> x ** x) 5
--- >>> diff (\x -> exp x / x ^ 2) 5
--- >>> diff (logBase 10) 114514
 -- 2.0
 -- -0.5403023058681398
 -- 8154.493476356563
--- 3.5619158184618382
--- 3.7925011955154114e-6
 
-diffSym :: (Diff Reflect.Expr -> Diff Reflect.Expr) -> Reflect.Expr
-diffSym f = diff f Reflect.x
-
--- >>> let t = 2.0 in diffSym (\x -> constant t * sin x)
--- >>> diffSym (diff (diff sin))
--- >>> diffSym (\x -> x ** x)
--- >>> diffSym (\x -> exp x / x ^ 2)
--- >>> diffSym (logBase 10)
--- sin x * 0 + 2.0 * (cos x * 1)
--- 1 * (negate (sin x) * 1 * 0 + 1 * (1 * (negate 1 * (cos x * 1)) + negate (sin x) * 0)) + 1 * (0 * (negate (sin x) * 1) + cos x * 0)
--- x**(x - 1) * x * 1 + x**(x - 1) * x * log x * 1
+-- >>> diff (\x -> exp x / x ^ 2) Reflect.x
+-- >>> diff (logBase 10) Reflect.x
 -- recip (x * x) * (exp x * 1) + negate (exp x / (x * x * (x * x))) * (x * 1 + x * 1)
 -- negate (log x / 10 / (log 10 * log 10)) * 0 + recip (x * log 10) * 1
+
+diffVec :: (Num a, Functor f) => (Diff a -> f (Diff a)) -> a -> f a
+diffVec f x = getGradient <$> diff' f x
+
+-- >>> diffVec (\a -> [sin a, cos a]) 0
+-- [1.0,-0.0]
+
+partial :: (Num a, Traversable f) => (f (Diff a) -> Diff a) -> Int -> f a -> a
+partial f n xs = getGradient $ partial' f n xs
+
+partials :: (Num a, Traversable f) => (f (Diff a) -> Diff a) -> f a -> f a
+partials f xs = getGradient <$> partials' f xs
+
+-- >>> partials (\[x, y, z] -> x * y + z) [1, 2, 3]
+-- >>> partials (\[x, y, z] -> x * y + z) [Reflect.x, Reflect.y, Reflect.z]
+-- [2,1,1]
+-- [1 * (y * 1 + x * 0) + 1 * 0,1 * (y * 0 + x * 1) + 1 * 0,1 * (y * 0 + x * 0) + 1 * 1]
+
+-- >>> partial (\[x, y] -> x ** y) 0 [0, 2]
+-- 0.0
+
+-- There is no sensible way to transpose in general so we only have cojacobian, not jacobian.
+cojacobian :: (Num a, Traversable f, Functor g) => (f (Diff a) -> g (Diff a)) -> f a -> f (g a)
+cojacobian f xs = (getGradient <$>) <$> partials' f xs
+
+-- >>> transpose $ cojacobian (\[x, y] -> [y, x, x + y, x * y, exp x * sin y]) [pi, 1]
+-- [[0.0,1.0],[1.0,0.0],[1.0,1.0],[1.0,3.141592653589793],[19.472221418841606,12.502969588876512]]
