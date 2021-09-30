@@ -1,0 +1,6 @@
+cradle:
+  stack:
+  - path: "./src"
+    component: "cut:lib"
+  - path: "./benchmark/autodiff"
+    component: "cut:exe:autodiff-bench"

@@ -1,4 +1,4 @@
-name:                haskell
+name:                cut
 version:             0.1.0.0
 github:              "githubuser/haskell"
 license:             BSD3
@@ -20,8 +20,11 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - simple-reflect
+- containers
+- erf
 
 ghc-options:
+- -O2
 - -Wall
 - -Wincomplete-uni-patterns
 - -Wpartial-fields
@@ -30,3 +33,15 @@ ghc-options:
 
 library:
   source-dirs: src
+
+executables:
+  autodiff-bench:
+    main:                Main.hs
+    source-dirs:         benchmark/autodiff
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - criterion
+    - cut
