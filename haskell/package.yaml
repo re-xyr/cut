@@ -22,9 +22,16 @@ dependencies:
 - simple-reflect
 - containers
 - erf
+- mtl
+- typerep-map
+- exceptions
+- unliftio
+- resourcet
+- process
+- async
 
 ghc-options:
-- -O2
+# - -O2
 - -Wall
 - -Wincomplete-uni-patterns
 - -Wpartial-fields
