@@ -1,4 +1,6 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -15,9 +17,9 @@ data Reader r :: Effect where
   Local :: (r -> r) -> m a -> Reader r m a
 
 runReader :: forall r es a. Typeable r => r -> Eff (Reader r ': es) a -> Eff es a
-runReader r = interpret (h r)
+runReader r = interpretH (h r)
   where
-    h :: r -> Handler (Reader r ': es) (Reader r)
-    h x = \case
+    h :: forall es'. r -> HandlerH es' (Reader r)
+    h x run = \case
       Ask        -> pure x
-      Local f m' -> interpose (h (f x)) m'
+      Local f m' -> run $ interposeH (h (f x)) m'

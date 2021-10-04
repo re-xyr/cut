@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE KindSignatures   #-}
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators    #-}
 module EffectExample where
 
@@ -19,6 +20,9 @@ data Teletype :: Effect where
   ReadTTY :: Teletype m String
   WriteTTY :: String -> Teletype m ()
 
+data Dummy :: Effect where
+  Dummy :: Dummy m ()
+
 runTeletypeIO :: IOE :> es => Eff (Teletype ': es) a -> Eff es a
 runTeletypeIO = interpret \case
   ReadTTY    -> send (Lift getLine)
@@ -31,16 +35,23 @@ runTeletypePure = interpret \case
     x : xs -> send (Put xs) >> pure x
   WriteTTY msg -> send (Tell [msg])
 
-echo :: Teletype :> es => Eff es ()
+runDummy :: (State [String] :> es) => Eff (Dummy ': es) w -> Eff es w
+runDummy = interpret \case
+  Dummy -> send (Put @[String] [])
+
+echo :: (Teletype :> es, Dummy :> es) => Eff es ()
 echo = do
   x <- send ReadTTY
   unless (null x) $ do
     send $ WriteTTY x
+    send Dummy
     echo
 
-test :: [String] -> [String]
-test xs = snd $ runPure $ runWriterByIORef $ runStateByIORef xs $ runTeletypePure echo
+test :: [String] -> ((((), [String]), [String]), [String]) -- state, writer, dummy
+test xs = runPure $ runStateByIORef [] $ runDummy $ runWriterByIORef $ runStateByIORef xs $ runTeletypePure echo
 
+-- >>> test ["abc", "def", "ghci"]
+-- ((((),[]),["abc","def","ghci"]),[])
 
 wowwee :: (Reader Integer :> es, Writer (Sum Integer) :> es) => Eff es ()
 wowwee = do
@@ -50,4 +61,5 @@ wowwee = do
     send $ Tell (Sum n)
     send $ Local (subtract (1 :: Integer)) wowwee
 
--- >>> runPure $ runReader 100 $ runWriterByIORef @(Sum Integer) wowwee
+-- >>> runPure $ runReader 3 $ runWriterByIORef @(Sum Integer) wowwee
+-- ((),Sum {getSum = 6})

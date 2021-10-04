@@ -20,6 +20,6 @@ data IOE :: Effect where
   Unlift :: ((forall x. m x -> IO x) -> IO a) -> IOE m a
 
 runIOE :: Eff '[IOE] a -> IO a
-runIOE = (`runReaderT` TMap.empty) . primRunEff . interpret @IOE \case
+runIOE = (`runReaderT` TMap.empty) . primRunEff . interpretH \run -> \case
   Lift m   -> primLiftIO m
-  Unlift f -> primUnliftIO f
+  Unlift f -> primUnliftIO \runInIO -> f (runInIO . run)

@@ -1,4 +1,6 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE LambdaCase          #-}
@@ -20,12 +22,12 @@ data Writer w :: Effect where
 runWriterByIORef :: forall w es a. (Typeable w, Monoid w) => Eff (Writer w ': es) a -> Eff es (a, w)
 runWriterByIORef m = do
   rw <- primNewIORef mempty
-  x <- interpret (h rw) m
+  x <- interpretH (h rw) m
   w' <- primReadIORef rw
   pure (x, w')
   where
-    h :: IORef w -> Handler (Writer w ': es) (Writer w)
-    h rw = \case
+    h :: forall es'. IORef w -> HandlerH es' (Writer w)
+    h rw interp = \case
       Tell w'   -> primModifyIORef' rw (<> w')
       Listen m' -> primBracket (primNewIORef mempty) write run
         where
@@ -33,6 +35,6 @@ runWriterByIORef m = do
             w' <- primReadIORef rw'
             primModifyIORef' rw (<> w')
           run rw' = do
-            x <- interpose (h rw') m'
+            x <- interp $ interposeH (h rw') m'
             w' <- primReadIORef rw'
             pure (x, w')

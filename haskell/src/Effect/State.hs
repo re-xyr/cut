@@ -1,9 +1,10 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE GADTs          #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase     #-}
-{-# LANGUAGE RankNTypes     #-}
-{-# LANGUAGE TypeOperators  #-}
+{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE KindSignatures   #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE TypeOperators    #-}
 module Effect.State where
 
 import           Data.IORef        (IORef)
@@ -22,7 +23,7 @@ runStateByIORef s m =  do
   s' <- primReadIORef rs
   pure (x, s')
   where
-    h :: IORef s -> Handler (State s ': es) (State s)
+    h :: IORef s -> HandlerF es (State s)
     h rs = \case
       Get    -> primReadIORef rs
       Put s' -> primWriteIORef rs s'
