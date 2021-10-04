@@ -1,5 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE MonoLocalBinds      #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -7,49 +9,45 @@
 {-# LANGUAGE TypeOperators       #-}
 module Effect.Internal.Handler where
 
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad.Reader   (ReaderT (runReaderT))
-import qualified Control.Monad.Reader   as MTL
-import qualified Data.TypeRepMap        as TMap
+import           Data.Reflection       (Given (given))
+import qualified Data.TypeRepMap       as TMap
 import           Effect.Internal.Monad
-import           System.IO.Unsafe       (unsafePerformIO)
-import           Unsafe.Coerce          (unsafeCoerce)
+import           System.IO.Unsafe      (unsafePerformIO)
+import           Unsafe.Coerce         (unsafeCoerce)
 
-interpret :: forall e es a. Legal e => HandlerF es e -> Eff (e ': es) a -> Eff es a
-interpret f m = PrimEff do
-  hdl <- MTL.ask
-  -- liftIO $ putStrLn $ "interpret " ++ show (typeRep (Proxy :: Proxy e)) ++ " with " ++ show hdl
-  let inserted = unsafeCoerce $ TMap.insert (HandlerOf hdl (const f)) hdl
-  liftIO $ runReaderT (primRunEff m) inserted
+interpret :: forall e es a. Legal e => Handler es e -> Eff (e ': es) a -> Eff es a
+interpret = reinterpretN @'[]
+{-# INLINE interpret #-}
 
-interpretH :: forall e es a. Legal e => HandlerH es e -> Eff (e ': es) a -> Eff es a
-interpretH f m = PrimEff do
-  hdl <- MTL.ask
-  -- liftIO $ putStrLn $ "interpret " ++ show (typeRep (Proxy :: Proxy e)) ++ " with " ++ show hdl
-  let inserted = unsafeCoerce $ TMap.insert (HandlerOf hdl \env -> f (unlift env)) hdl
-  liftIO $ runReaderT (primRunEff m) inserted
+reinterpret :: forall e' e es a. Legal e => Handler (e' ': es) e -> Eff (e ': es) a -> Eff (e' ': es) a
+reinterpret = reinterpretN @'[e']
+{-# INLINE reinterpret #-}
 
-interpose :: forall e es a. e :> es => HandlerF es e -> Eff es a -> Eff es a
-interpose f m = PrimEff do
-  hdl <- MTL.ask
-  -- liftIO $ putStrLn $ "interpose " ++ show (typeRep (Proxy :: Proxy e)) ++ " with " ++ show hdl
-  let inserted = TMap.insert (HandlerOf hdl (const f)) hdl
-  liftIO $ runReaderT (primRunEff m) inserted
+reinterpret2 :: forall e' e'' e es a. Legal e => Handler (e' ': e'' ': es) e -> Eff (e ': es) a -> Eff (e' ': e'' ': es) a
+reinterpret2 = reinterpretN @'[e', e'']
+{-# INLINE reinterpret2 #-}
 
-interposeH :: forall e es a. e :> es => HandlerH es e -> Eff es a -> Eff es a
-interposeH f m = PrimEff do
-  hdl <- MTL.ask
-  -- liftIO $ putStrLn $ "interpose " ++ show (typeRep (Proxy :: Proxy e)) ++ " with " ++ show hdl
-  let inserted = TMap.insert (HandlerOf hdl \env -> f (unlift env)) hdl
-  liftIO $ runReaderT (primRunEff m) inserted
+reinterpret3 :: forall e' e'' e''' e es a. Legal e => Handler (e' ': e'' ': e''' ': es) e -> Eff (e ': es) a -> Eff (e' ': e'' ': e''' ': es) a
+reinterpret3 = reinterpretN @'[e', e'', e''']
+{-# INLINE reinterpret3 #-}
+
+reinterpretN :: forall es' e es a. Legal e => Handler (es' ++ es) e -> Eff (e ': es) a -> Eff (es' ++ es) a
+reinterpretN f m = PrimEff \hdl ->
+  let inserted = unsafeCoerce $ TMap.insert (HandlerOf hdl f) hdl
+  in primRunEff m inserted
+
+interpose :: forall e es a. e :> es => Handler es e -> Eff es a -> Eff es a
+interpose f m = PrimEff \hdl ->
+  let inserted = TMap.insert (HandlerOf hdl f) hdl
+  in primRunEff m inserted
 
 runPure :: Eff '[] a -> a
-runPure = unsafePerformIO . (`runReaderT` TMap.empty) . primRunEff
+runPure m = unsafePerformIO $ primRunEff m TMap.empty
 
-unliftIO :: Env es -> Eff es a -> IO a
-unliftIO hdl' m = runReaderT (primRunEff m) hdl'
+unliftIO :: Given (Env es) => Eff es a -> IO a
+unliftIO m = primRunEff m given
 {-# INLINE unliftIO #-}
 
-unlift :: Env es' -> Eff es' a -> Eff es a
-unlift hdl' = PrimEff . liftIO . unliftIO hdl'
+unlift :: Given (Env es') => Eff es' a -> Eff es a
+unlift = PrimEff . const . unliftIO
 {-# INLINE unlift #-}

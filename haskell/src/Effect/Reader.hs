@@ -17,9 +17,9 @@ data Reader r :: Effect where
   Local :: (r -> r) -> m a -> Reader r m a
 
 runReader :: forall r es a. Typeable r => r -> Eff (Reader r ': es) a -> Eff es a
-runReader r = interpretH (h r)
+runReader r = interpret (h r)
   where
-    h :: forall es'. r -> HandlerH es' (Reader r)
-    h x run = \case
+    h :: forall es'. r -> Handler es' (Reader r)
+    h x = \case
       Ask        -> pure x
-      Local f m' -> run $ interposeH (h (f x)) m'
+      Local f m' -> unlift $ interpose (h (f x)) m'

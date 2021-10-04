@@ -16,5 +16,7 @@ data Timeout :: Effect where
   Timeout :: Int -> m a -> Timeout m (Maybe a)
 
 runTimeout :: IOE :> es => Eff (Timeout ': es) a -> Eff es a
-runTimeout = interpretH \run -> \case
-  Timeout n m -> send $ Unlift \runInIO -> T.timeout n $ runInIO $ run m
+runTimeout = interpret \case
+  Timeout n m -> send $ Unlift \runInIO -> T.timeout n $ runInIO $ unlift m
+
+-- >>> runIOE $ runTimeout $ send $ Timeout 100 (pure "hey")

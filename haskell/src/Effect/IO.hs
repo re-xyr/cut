@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeOperators    #-}
 module Effect.IO where
 
-import           Control.Monad.Reader  (runReaderT)
 import qualified Data.TypeRepMap       as TMap
 import           Effect
 import           Effect.Internal.Monad
@@ -20,6 +19,6 @@ data IOE :: Effect where
   Unlift :: ((forall x. m x -> IO x) -> IO a) -> IOE m a
 
 runIOE :: Eff '[IOE] a -> IO a
-runIOE = (`runReaderT` TMap.empty) . primRunEff . interpretH \run -> \case
+runIOE = (`primRunEff` TMap.empty) . interpret \case
   Lift m   -> primLiftIO m
-  Unlift f -> primUnliftIO \runInIO -> f (runInIO . run)
+  Unlift f -> primUnliftIO \runInIO -> f (runInIO . unlift)

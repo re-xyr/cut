@@ -19,6 +19,6 @@ data Error e :: Effect where
   CatchError :: m a -> (e -> m a) -> Error e m a
 
 runError :: forall e es a. (Typeable e, Exception e) => Eff (Error e ': es) a -> Eff es (Either e a)
-runError = primTry . interpretH \run -> \case
+runError = primTry . interpret \case
   ThrowError e     -> primThrow e
-  CatchError m' h' -> primCatch (run m') (run . h')
+  CatchError m' h' -> primCatch (unlift m') (unlift . h')

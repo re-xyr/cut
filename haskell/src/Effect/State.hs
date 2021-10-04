@@ -23,7 +23,7 @@ runStateByIORef s m =  do
   s' <- primReadIORef rs
   pure (x, s')
   where
-    h :: IORef s -> HandlerF es (State s)
+    h :: IORef s -> Handler es (State s)
     h rs = \case
       Get    -> primReadIORef rs
       Put s' -> primWriteIORef rs s'

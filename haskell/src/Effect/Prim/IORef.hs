@@ -1,20 +1,21 @@
 module Effect.Prim.IORef where
 
+import           Data.IORef
 import           Effect.Internal.Monad
-import           UnliftIO.IORef
+import           Effect.Prim.IO
 
 primNewIORef :: a -> Eff es (IORef a)
-primNewIORef x = PrimEff $ newIORef x
+primNewIORef x = primLiftIO $ newIORef x
 {-# INLINE primNewIORef #-}
 
 primReadIORef :: IORef a -> Eff es a
-primReadIORef r = PrimEff $ readIORef r
+primReadIORef r = primLiftIO $ readIORef r
 {-# INLINE primReadIORef #-}
 
 primWriteIORef :: IORef a -> a -> Eff es ()
-primWriteIORef r x = PrimEff $ writeIORef r x
+primWriteIORef r x = primLiftIO $ writeIORef r x
 {-# INLINE primWriteIORef #-}
 
 primModifyIORef' :: IORef a -> (a -> a) -> Eff es ()
-primModifyIORef' r f = PrimEff $ modifyIORef' r f
+primModifyIORef' r f = primLiftIO $ modifyIORef' r f
 {-# INLINE primModifyIORef' #-}

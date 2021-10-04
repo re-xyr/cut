@@ -1,20 +1,22 @@
+{-# LANGUAGE BlockArguments #-}
 module Effect.Prim.Exception where
 
+import           Control.Exception
 import           Effect.Internal.Monad
-import           UnliftIO.Exception
+import           Effect.Prim.IO
 
 primThrow :: Exception e => e -> Eff es a
-primThrow e = PrimEff $ throwIO e
+primThrow e = primLiftIO $ throwIO e
 {-# INLINE primThrow #-}
 
 primCatch :: Exception e => Eff es a -> (e -> Eff es a) -> Eff es a
-primCatch m h = PrimEff $ catch (primRunEff m) (primRunEff . h)
+primCatch m h = primUnliftIO \unlift -> catch (unlift m) (unlift . h)
 {-# INLINE primCatch #-}
 
 primTry :: Exception e => Eff es a -> Eff es (Either e a)
-primTry m = PrimEff $ try $ primRunEff m
+primTry m = primUnliftIO \unlift -> try (unlift m)
 {-# INLINE primTry #-}
 
 primBracket :: Eff es a -> (a -> Eff es b) -> (a -> Eff es c) -> Eff es c
-primBracket a r m = PrimEff $ bracket (primRunEff a) (primRunEff . r) (primRunEff . m)
+primBracket a r m = primUnliftIO \unlift -> bracket (unlift a) (unlift . r) (unlift . m)
 {-# INLINE primBracket #-}
