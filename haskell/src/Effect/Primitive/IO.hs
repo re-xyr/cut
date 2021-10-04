@@ -1,7 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE RankNTypes     #-}
 {-# LANGUAGE TypeOperators  #-}
-module Effect.Prim.IO where
+module Effect.Primitive.IO where
 
 import           Effect.Internal.Monad
 

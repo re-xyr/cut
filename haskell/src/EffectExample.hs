@@ -48,18 +48,18 @@ echo = do
     echo
 
 test :: [String] -> ((((), [String]), [String]), [String]) -- state, writer, dummy
-test xs = runPure $ runStateByIORef [] $ runDummy $ runWriterByIORef $ runStateByIORef xs $ runTeletypePure echo
+test xs = runPure $ runLocalState [] $ runDummy $ runLocalWriter $ runLocalState xs $ runTeletypePure echo
 
 -- >>> test ["abc", "def", "ghci"]
 -- ((((),[]),["abc","def","ghci"]),[])
 
 wowwee :: (Reader Integer :> es, Writer (Sum Integer) :> es) => Eff es ()
 wowwee = do
-  n <- send Ask
+  n <- ask
   if n == (0 :: Integer) then pure ()
   else do
-    send $ Tell (Sum n)
-    send $ Local (subtract (1 :: Integer)) wowwee
+    tell (Sum n)
+    local (subtract (1 :: Integer)) wowwee
 
--- >>> runPure $ runReader 3 $ runWriterByIORef @(Sum Integer) wowwee
+-- >>> runPure $ runReader 3 $ runLocalWriter @(Sum Integer) wowwee
 -- ((),Sum {getSum = 6})

@@ -10,13 +10,15 @@ module Effect.Timeout where
 
 import           Effect
 import           Effect.IO
-import qualified System.Timeout as T
+import qualified UnliftIO.Timeout as T
 
 data Timeout :: Effect where
   Timeout :: Int -> m a -> Timeout m (Maybe a)
 
 runTimeout :: IOE :> es => Eff (Timeout ': es) a -> Eff es a
 runTimeout = interpret \case
-  Timeout n m -> send $ Unlift \runInIO -> T.timeout n $ runInIO $ unlift m
+  Timeout n m -> T.timeout n (unlift m)
 
--- >>> runIOE $ runTimeout $ send $ Timeout 100 (pure "hey")
+timeout :: Timeout :> es => Int -> Eff es a -> Eff es (Maybe a)
+timeout n m = send $ Timeout n m
+{-# INLINE timeout #-}

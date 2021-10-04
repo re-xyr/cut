@@ -1,9 +1,9 @@
 {-# LANGUAGE BlockArguments #-}
-module Effect.Prim.Exception where
+module Effect.Primitive.Exception where
 
 import           Control.Exception
 import           Effect.Internal.Monad
-import           Effect.Prim.IO
+import           Effect.Primitive.IO
 
 primThrow :: Exception e => e -> Eff es a
 primThrow e = primLiftIO $ throwIO e

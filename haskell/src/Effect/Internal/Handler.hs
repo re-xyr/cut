@@ -10,10 +10,8 @@
 module Effect.Internal.Handler where
 
 import           Data.Reflection       (Given (given))
-import qualified Data.TypeRepMap       as TMap
 import           Effect.Internal.Monad
 import           System.IO.Unsafe      (unsafePerformIO)
-import           Unsafe.Coerce         (unsafeCoerce)
 
 interpret :: forall e es a. Legal e => Handler es e -> Eff (e ': es) a -> Eff es a
 interpret = reinterpretN @'[]
@@ -32,17 +30,13 @@ reinterpret3 = reinterpretN @'[e', e'', e''']
 {-# INLINE reinterpret3 #-}
 
 reinterpretN :: forall es' e es a. Legal e => Handler (es' ++ es) e -> Eff (e ': es) a -> Eff (es' ++ es) a
-reinterpretN f m = PrimEff \hdl ->
-  let inserted = unsafeCoerce $ TMap.insert (HandlerOf hdl f) hdl
-  in primRunEff m inserted
+reinterpretN f m = PrimEff \hdl -> primRunEff m $ insertHandler (HandlerOf hdl f) hdl
 
 interpose :: forall e es a. e :> es => Handler es e -> Eff es a -> Eff es a
-interpose f m = PrimEff \hdl ->
-  let inserted = TMap.insert (HandlerOf hdl f) hdl
-  in primRunEff m inserted
+interpose f m = PrimEff \hdl -> primRunEff m $ insertHandler (HandlerOf hdl f) hdl
 
 runPure :: Eff '[] a -> a
-runPure m = unsafePerformIO $ primRunEff m TMap.empty
+runPure m = unsafePerformIO $ primRunEff m emptyEnv
 
 unliftIO :: Given (Env es) => Eff es a -> IO a
 unliftIO m = primRunEff m given

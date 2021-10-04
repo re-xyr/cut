@@ -1,8 +1,8 @@
-module Effect.Prim.IORef where
+module Effect.Primitive.IORef where
 
 import           Data.IORef
 import           Effect.Internal.Monad
-import           Effect.Prim.IO
+import           Effect.Primitive.IO
 
 primNewIORef :: a -> Eff es (IORef a)
 primNewIORef x = primLiftIO $ newIORef x
