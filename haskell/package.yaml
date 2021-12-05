@@ -29,6 +29,8 @@ dependencies:
 - resourcet
 - process
 - async
+- megaparsec
+- extra
 
 ghc-options:
 # - -O2
