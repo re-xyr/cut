@@ -1,12 +1,10 @@
 module AoC.Day01 where
 
 import           AoC.Util
-import           Control.Applicative        (Alternative (many))
-import           Text.Megaparsec.Char       (space)
-import           Text.Megaparsec.Char.Lexer (decimal)
+import           Control.Applicative (Alternative (many))
 
 parser :: Parser [Int]
-parser = many (decimal <* space)
+parser = many natural
 
 count :: [Int] -> Int
 count xs = length $ filter (uncurry (<)) $ zip xs (drop 1 xs)

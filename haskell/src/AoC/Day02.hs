@@ -3,17 +3,15 @@
 module AoC.Day02 where
 
 import           AoC.Util
-import           Control.Applicative        (Alternative (many))
-import           Control.Arrow              ((&&&))
-import           Text.Megaparsec            (choice)
-import           Text.Megaparsec.Char       (space)
-import           Text.Megaparsec.Char.Lexer (decimal)
+import           Control.Applicative (Alternative (many))
+import           Control.Arrow       ((&&&))
+import           Text.Megaparsec     (choice)
 
 data Dir = Forward | Down | Up deriving (Eq)
 data Move = By { moveDir :: Dir, moveLen :: Int }
 
 parser :: Parser [Move]
-parser = many (By <$> dir <* space <*> decimal <* space)
+parser = many $ By <$> term dir <*> natural
   where dir = choice [Forward <$ "forward", Down <$ "down", Up <$ "up"]
 
 towards :: Dir -> [Move] -> Int

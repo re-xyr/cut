@@ -4,18 +4,17 @@
 module AoC.Day03 where
 
 import           AoC.Util
-import           Control.Applicative  (Alternative (many, some, (<|>)))
-import           Control.Arrow        ((&&&))
-import           Data.List            (transpose)
-import           Data.Monoid          (Sum (getSum))
-import           Data.Tuple.Extra     (both)
-import           Text.Megaparsec.Char (space)
+import           Control.Applicative (Alternative (many, some, (<|>)))
+import           Control.Arrow       ((&&&))
+import           Data.List           (transpose)
+import           Data.Monoid         (Sum (getSum))
+import           Data.Tuple.Extra    (both)
 
-data Bit = Zero | One deriving (Eq, Ord, Enum)
+data Bit = Zero | One deriving (Eq)
 type Bin = [Bit]
 
 parser :: Parser [Bin]
-parser = many (some bit <* space)
+parser = many $ term $ some bit
   where bit = One <$ "1" <|> Zero <$ "0"
 
 common :: Bin -> Bit
